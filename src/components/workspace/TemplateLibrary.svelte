@@ -9,6 +9,7 @@
   import MdIcon from "$/components/basic/MdIcon.svelte";
   import { Button } from "$/components/ui";
   import TemplateCard from "$/components/workspace/TemplateCard.svelte";
+  import FolderCard from "$/components/workspace/FolderCard.svelte";
   import RenameLabelDialog from "$/components/workspace/RenameLabelDialog.svelte";
   import AddRemoteDriveDialog from "$/components/workspace/AddRemoteDriveDialog.svelte";
   import FolderNav from "$/components/workspace/FolderNav.svelte";
@@ -64,7 +65,6 @@
   let folderPromptOpen = $state(false);
   let folderTarget = $state<{ driveId: string; folder?: LibraryFolder; parentId: string | null } | null>(null);
   let driveDialog = $state(false);
-  let dropGrid = $state(false);
 
   const section = $derived(location.section);
 
@@ -469,17 +469,13 @@
     {:else}
       <div
         class="template-grid"
-        class:is-drop={dropGrid}
         role="list"
         ondragover={(event) => {
           if (event.dataTransfer && isLibraryDrag(event.dataTransfer) && (section === "mine" || section === "drive")) {
             event.preventDefault();
-            dropGrid = true;
           }
         }}
-        ondragleave={() => (dropGrid = false)}
         ondrop={(event) => {
-          dropGrid = false;
           if (!event.dataTransfer || (section !== "mine" && section !== "drive")) {
             return;
           }
@@ -490,19 +486,16 @@
           }
         }}>
         {#each currentChildren as folder (folder.id)}
-          <a
-            class="folder-tile"
+          <FolderCard
+            name={folder.name}
             href={currentDriveId === LOCAL_DRIVE_ID
               ? libraryHref("mine", { folderId: folder.id })
               : libraryHref("drive", { driveId: currentDriveId, folderId: folder.id })}
-            draggable="true"
-            ondragstart={(event) => event.dataTransfer && setLibraryDrag(event.dataTransfer, { kind: "folder", folderId: folder.id, driveId: currentDriveId })}
-            ondragover={(event) => {
-              if (event.dataTransfer && isLibraryDrag(event.dataTransfer)) {
-                event.preventDefault();
-              }
-            }}
-            ondrop={(event) => {
+            itemCount={labelsInFolder(currentLabels, currentIndex, folder.id).length +
+              childFolders(currentIndex.folders, folder.id).length}
+            onDragStart={(event) =>
+              event.dataTransfer && setLibraryDrag(event.dataTransfer, { kind: "folder", folderId: folder.id, driveId: currentDriveId })}
+            onDrop={(event) => {
               event.preventDefault();
               event.stopPropagation();
               if (!event.dataTransfer) {
@@ -512,10 +505,16 @@
               if (item) {
                 void onDropItem(item, { driveId: currentDriveId, folderId: folder.id });
               }
-            }}>
-            <MdIcon icon="folder" />
-            <span>{folder.name}</span>
-          </a>
+            }}
+            onOpen={() =>
+              onNavigate(
+                currentDriveId === LOCAL_DRIVE_ID
+                  ? { section: "mine", folderId: folder.id }
+                  : { section: "drive", driveId: currentDriveId, folderId: folder.id },
+              )}
+            onNewSubfolder={() => openFolderPrompt("create", currentDriveId, folder.id)}
+            onRename={() => openFolderPrompt("rename", currentDriveId, folder.parentId, folder)}
+            onDelete={() => void deleteFolder(folder, currentDriveId)} />
         {/each}
 
         {#if visibleLabels.length === 0 && currentChildren.length === 0 && section === "recent"}

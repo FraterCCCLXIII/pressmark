@@ -323,6 +323,7 @@
     "library.folder.create": "Create folder",
     "library.folder.expand": "Expand folder",
     "library.folder.collapse": "Collapse folder",
+    "library.folder.items": "items",
     "library.empty.folder": "This folder is empty. Drop labels here or create a subfolder.",
     "library.drive.add": "Add remote drive",
     "library.drive.help": "Connect to another Pressmark that is sharing its library. Use that app's address and access code.",
