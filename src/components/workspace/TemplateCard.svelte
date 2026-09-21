@@ -10,15 +10,35 @@
     label: ExportedLabelTemplate;
     printCount?: number;
     lastQuantity?: number;
+    draggable?: boolean;
+    onDragStart?: (event: DragEvent) => void;
     onSelect?: () => void;
     onRename?: () => void;
     onDuplicate?: () => void;
     onDelete?: () => void;
     onExport?: () => void;
     onPrint?: () => void;
+    onFillForm?: () => void;
+    onAddToForms?: () => void;
+    onRemoveFromForms?: () => void;
   }
 
-  let { label, printCount = 0, lastQuantity = 0, onSelect, onRename, onDuplicate, onDelete, onExport, onPrint }: Props = $props();
+  let {
+    label,
+    printCount = 0,
+    lastQuantity = 0,
+    draggable = false,
+    onDragStart,
+    onSelect,
+    onRename,
+    onDuplicate,
+    onDelete,
+    onExport,
+    onPrint,
+    onFillForm,
+    onAddToForms,
+    onRemoveFromForms,
+  }: Props = $props();
 
   let menu: { show: () => void } | undefined = $state();
 
@@ -37,7 +57,7 @@
   };
 </script>
 
-<div class="template-card-wrap">
+<div class="template-card-wrap" {draggable} role={draggable ? "listitem" : undefined} ondragstart={onDragStart}>
   <div class="template-card">
     <button type="button" class="template-card__hit" onclick={onCardClick} oncontextmenu={showCardMenu}>
       <div class="template-card__preview">
@@ -81,6 +101,15 @@
         {/if}
         {#if onExport}
           <MenuItem onclick={() => onExport()}>{$tr("editor.export")}</MenuItem>
+        {/if}
+        {#if onFillForm}
+          <MenuItem onclick={() => onFillForm()}>{$tr("forms.fill")}</MenuItem>
+        {/if}
+        {#if onAddToForms}
+          <MenuItem onclick={() => onAddToForms()}>{$tr("forms.add")}</MenuItem>
+        {/if}
+        {#if onRemoveFromForms}
+          <MenuItem onclick={() => onRemoveFromForms()}>{$tr("forms.remove")}</MenuItem>
         {/if}
         {#if onPrint}
           <MenuItem onclick={() => onPrint()}>{$tr("editor.print")}</MenuItem>

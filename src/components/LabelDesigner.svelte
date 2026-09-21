@@ -39,6 +39,8 @@
   import { CSV_FIELD_MIME, csvVariableToken, parseCsvTable } from "$/utils/csv_source";
   import { applyCsvPreview, cloneFabricJson, getCsvSource, serializeCanvasJson, setBoundText } from "$/utils/csv_preview";
   import { applyCanvasLayerOrder, listCanvasLayers, moveLayer } from "$/utils/canvas_layers";
+  import { extractFormFieldsFromCanvas } from "$/utils/form_fields";
+  import { isPublishedForm, publishForm } from "$/utils/form_store";
 
   interface Props {
     autoLoad?: boolean;
@@ -47,9 +49,10 @@
     onUrlLoaded?: (label: ExportedLabelTemplate) => void;
     onDeleted?: () => void;
     onBeforeUnmount?: () => void;
+    onOpenForm?: (sourceId: string) => void;
   }
 
-  let { autoLoad = true, onSaved, fileRenamed, onUrlLoaded, onDeleted, onBeforeUnmount }: Props = $props();
+  let { autoLoad = true, onSaved, fileRenamed, onUrlLoaded, onDeleted, onBeforeUnmount, onOpenForm }: Props = $props();
 
   let htmlCanvas: HTMLCanvasElement;
   let canvasStage: HTMLDivElement | undefined = $state();
@@ -766,7 +769,30 @@
       labelTitle = label.title;
       Toasts.message($tr("editor.save.done"));
       onSaved?.();
+      return savedId;
     }
+    return undefined;
+  };
+
+  const formFields = $derived.by(() => {
+    void editRevision;
+    void layerRevision;
+    void csvPreviewRevision;
+    return extractFormFieldsFromCanvas(fabricCanvas);
+  });
+
+  const saveAsForm = () => {
+    const id = saveCurrentLabel();
+    if (!id) {
+      return;
+    }
+    if (formFields.length === 0) {
+      Toasts.message($tr("forms.save.need_fields"));
+      return;
+    }
+    publishForm(id);
+    Toasts.message($tr("forms.save.done"));
+    onSaved?.();
   };
 
   const rotatePaper = () => {
@@ -1117,6 +1143,16 @@
             <MdIcon icon="settings" />
             {$tr("params.label.menu_title")}
           </MenuItem>
+          <MenuItem disabled={formFields.length === 0} onclick={saveAsForm}>
+            <MdIcon icon="assignment" />
+            {$tr("forms.save")}
+          </MenuItem>
+          {#if savedId && isPublishedForm(savedId) && onOpenForm}
+            <MenuItem onclick={() => onOpenForm(savedId!)}>
+              <MdIcon icon="assignment" />
+              {$tr("forms.open")}
+            </MenuItem>
+          {/if}
           <MenuItem onclick={duplicateCurrentLabel}>
             <MdIcon icon="content_copy" />
             {$tr("editor.duplicate")}
@@ -1246,7 +1282,7 @@
         </Button>
       {/snippet}
       {#snippet label()}
-        <LabelSettingsPanel {labelProps} bind:title={labelTitle} onChange={onUpdateLabelProps} onTitleChange={(value) => (labelTitle = value)} />
+        <LabelSettingsPanel {labelProps} bind:title={labelTitle} {formFields} onChange={onUpdateLabelProps} onTitleChange={(value) => (labelTitle = value)} onSaveAsForm={saveAsForm} />
       {/snippet}
       {#snippet object()}
         <ObjectSettingsPanel

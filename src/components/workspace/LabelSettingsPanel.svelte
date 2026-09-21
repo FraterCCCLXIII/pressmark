@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { LabelProps, LabelShape } from "$/types";
+  import type { FormField } from "$/utils/form_fields";
+  import { Button } from "$/components/ui";
   import { DEFAULT_LABEL_PRESETS } from "$/defaults";
   import { applyLabelDimensions, DEFAULT_DPMM, formatPresetSize, labelSizeMm } from "$/utils/label_geometry";
   import { normalizeLabelPrintDirection } from "$/utils/label_template";
@@ -13,9 +15,11 @@
     title: string;
     onChange: (next: LabelProps) => void;
     onTitleChange: (title: string) => void;
+    formFields?: FormField[];
+    onSaveAsForm?: () => void;
   }
 
-  let { labelProps, title = $bindable(), onChange, onTitleChange }: Props = $props();
+  let { labelProps, title = $bindable(), onChange, onTitleChange, formFields = [], onSaveAsForm }: Props = $props();
 
   let dpmm = $state(DEFAULT_DPMM);
   let presets = $state(DEFAULT_LABEL_PRESETS);
@@ -198,3 +202,20 @@
   <input id="print-range" type="checkbox" checked={!!$appConfig.gridEnabled} onclick={toggleGrid} />
   <span>{$tr("editor.label_settings.grid")}</span>
 </label>
+
+{#if formFields.length > 0}
+  <section class="insp-section">
+    <h3 class="insp-heading">{$tr("forms.fields")}</h3>
+    <p class="insp-help">{$tr("forms.fields.designer_help")}</p>
+    <ul class="form-field-list">
+      {#each formFields as field (field.key)}
+        <li>{field.label}</li>
+      {/each}
+    </ul>
+    {#if onSaveAsForm}
+      <Button class="mt-2 w-full justify-center" onclick={onSaveAsForm}>
+        {$tr("forms.save")}
+      </Button>
+    {/if}
+  </section>
+{/if}

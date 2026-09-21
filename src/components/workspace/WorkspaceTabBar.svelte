@@ -17,13 +17,15 @@
     tabs: WorkspaceTab[];
     activeTabId: string | null;
     librarySection?: LibrarySection;
+    libraryFolderId?: string;
+    libraryDriveId?: string;
     showHome: boolean;
     onClose: (id: string) => void;
     onCreate: () => void;
     children?: Snippet;
   }
 
-  let { tabs, activeTabId, librarySection = "recent", showHome, onClose, onCreate, children }: Props = $props();
+  let { tabs, activeTabId, librarySection = "recent", libraryFolderId, libraryDriveId, showHome, onClose, onCreate, children }: Props = $props();
 
   const desktop = getDesktop();
   const isMacDesktop = desktop?.platform === "darwin";
@@ -44,7 +46,16 @@
   {#if isMacDesktop}
     <WindowControls />
   {/if}
-  <a href={libraryHref(librarySection)} class="workspace-tab" class:is-active={showHome} title={$tr("editor.home")}>
+  <a
+    href={libraryHref(
+      librarySection,
+      librarySection === "mine" || librarySection === "drive"
+        ? { folderId: libraryFolderId, driveId: libraryDriveId }
+        : undefined,
+    )}
+    class="workspace-tab"
+    class:is-active={showHome}
+    title={$tr("editor.home")}>
     <MdIcon icon="home" />
     {$tr("editor.home")}
   </a>

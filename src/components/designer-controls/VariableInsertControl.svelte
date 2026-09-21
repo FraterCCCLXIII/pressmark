@@ -5,6 +5,8 @@
   import { Button, Menu } from "$/components/ui";
   import { csvVariableToken } from "$/utils/csv_source";
   import { getBoundText, setBoundText } from "$/utils/csv_preview";
+  import { sanitizeFieldKey } from "$/utils/form_fields";
+  import { TextField } from "$/components/ui";
 
   interface Props {
     selectedObject: fabric.FabricObject;
@@ -30,6 +32,17 @@
   const insertDateTime = (format?: string) => {
     insertToken(format ? `{dt|${format}}` : "{dt}");
   };
+
+  let customName = $state("");
+
+  const insertCustomField = () => {
+    const key = sanitizeFieldKey(customName);
+    if (!key) {
+      return;
+    }
+    insertToken(csvVariableToken(key));
+    customName = "";
+  };
 </script>
 
 <Menu closeOnSelect={false} class="min-w-56 p-2">
@@ -38,6 +51,30 @@
       <MdIcon icon="data_object" />
     </Button>
   {/snippet}
+  <div class="mb-2 border-b border-line pb-2">
+    <div class="mb-1.5 text-[11px] text-muted">{$tr("params.variables.custom")}</div>
+    <div class="flex items-center gap-1">
+      <TextField
+        class="min-h-8 text-xs"
+        placeholder={$tr("params.variables.custom.placeholder")}
+        bind:value={customName}
+        onkeydown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            insertCustomField();
+          }
+        }} />
+      <Button
+        size="sm"
+        pill={false}
+        onmousedown={(event) => {
+          event.preventDefault();
+          insertCustomField();
+        }}>
+        {$tr("params.variables.custom.insert")}
+      </Button>
+    </div>
+  </div>
   {#if csvColumns.length > 0}
     <div class="mb-2 border-b border-line pb-2">
       <div class="mb-1.5 text-[11px] text-muted">{$tr("params.variables.csv")}</div>

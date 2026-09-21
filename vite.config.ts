@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { resolve } from "node:path";
+import { pressmarkLibraryHost } from "./scripts/vite-pressmark-host";
 
 const getDate = (): string => {
   const date = new Date();
@@ -11,7 +12,7 @@ const getDate = (): string => {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [tailwindcss(), svelte()],
+  plugins: [tailwindcss(), svelte(), pressmarkLibraryHost()],
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
     __APP_COMMIT__: JSON.stringify(process.env.COMMIT_HASH),

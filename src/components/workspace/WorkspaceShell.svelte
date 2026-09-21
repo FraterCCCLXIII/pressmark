@@ -2,9 +2,10 @@
   import { onMount, tick } from "svelte";
   import LabelDesigner from "$/components/LabelDesigner.svelte";
   import TemplateLibrary from "$/components/workspace/TemplateLibrary.svelte";
+  import FormFill from "$/components/workspace/FormFill.svelte";
   import {
     type AppRoute,
-    type LibrarySection,
+    type LibraryLocation,
     isShareHash,
     navigateApp,
     parseAppRoute,
@@ -30,6 +31,8 @@
   import { tr } from "$/utils/i18n";
   import { getDesktop } from "$/utils/desktop";
   import { Toasts } from "$/utils/toasts";
+  import { LIBRARY_CHANGED_EVENT } from "$/utils/library_host";
+  import { startLibraryShareRuntime } from "$/utils/library_share";
 
   // eslint-disable-next-line no-undef
   const appCommit = __APP_COMMIT__;
@@ -39,10 +42,12 @@
   const restoredSession = LocalStoragePersistence.loadWorkspaceSession();
   const bootRoute = parseAppRoute();
 
-  let view = $state<"library" | "editor">(
-    bootRoute?.name === "editor" ? "editor" : bootRoute?.name === "library" ? "library" : (restoredSession?.view ?? "library"),
+  let view = $state<"library" | "editor" | "form">(
+    bootRoute?.name === "form" ? "form" : bootRoute?.name === "editor" ? "editor" : bootRoute?.name === "library" ? "library" : (restoredSession?.view ?? "library"),
   );
-  let section = $state<LibrarySection>(bootRoute?.name === "library" ? bootRoute.section : (restoredSession?.section ?? "recent"));
+  let section = $state<LibraryLocation["section"]>(bootRoute?.name === "library" ? bootRoute.section : (restoredSession?.section ?? "recent"));
+  let folderId = $state<string | undefined>(bootRoute?.name === "library" ? bootRoute.folderId : restoredSession?.folderId);
+  let driveId = $state<string | undefined>(bootRoute?.name === "library" ? bootRoute.driveId : restoredSession?.driveId);
   let tabs = $state<WorkspaceTabState[]>(restoredSession?.tabs ?? []);
   let activeTabId = $state<string | null>(
     bootRoute?.name === "editor" && bootRoute.tabId && tabs.some((tab) => tab.id === bootRoute.tabId)
@@ -55,9 +60,16 @@
   let settingsOpen = $state(bootRoute?.name === "settings");
   let savedLabelsOpen = $state(false);
   let designer = $state<LabelDesigner | undefined>();
+  let formId = $state<string | undefined>(bootRoute?.name === "form" ? bootRoute.formId : restoredSession?.formId);
   let lastContentRoute = $state<AppRoute>(
-    view === "editor" ? { name: "editor", tabId: activeTabId ?? undefined } : { name: "library", section },
+    view === "form" && formId
+      ? { name: "form", formId }
+      : view === "editor"
+        ? { name: "editor", tabId: activeTabId ?? undefined }
+        : { name: "library", section, folderId, driveId },
   );
+
+  const libraryRoute = (): AppRoute => ({ name: "library", section, folderId, driveId });
 
   const activeTab = $derived(tabs.find((tab) => tab.id === activeTabId));
 
@@ -123,7 +135,17 @@
     if (route.name === "library") {
       snapshotDesigner();
       section = route.section;
+      folderId = route.folderId;
+      driveId = route.driveId;
       view = "library";
+      libraryRevision += 1;
+      return;
+    }
+    if (route.name === "form") {
+      snapshotDesigner();
+      formId = route.formId;
+      section = "forms";
+      view = "form";
       libraryRevision += 1;
       return;
     }
@@ -132,7 +154,7 @@
       (activeTabId && tabs.some((tab) => tab.id === activeTabId) ? activeTabId : undefined) ??
       tabs[0]?.id;
     if (!tabId) {
-      navigateApp({ name: "library", section }, "replace");
+      navigateApp(libraryRoute(), "replace");
       return;
     }
     if (route.tabId !== tabId) {
@@ -189,6 +211,22 @@
     }
   };
 
+  const openForm = (label: ExportedLabelTemplate) => {
+    if (!label.id) {
+      return;
+    }
+    try {
+      snapshotDesigner();
+    } catch (error) {
+      console.error(error);
+    }
+    formId = label.id;
+    section = "forms";
+    view = "form";
+    navigateApp({ name: "form", formId: label.id });
+    persistSession();
+  };
+
   const createLabel = async (label: LabelProps, title: string) => {
     createOpen = false;
     await openLabel(emptyLabelTemplate(label, title));
@@ -209,7 +247,7 @@
       navigateApp({ name: "editor", tabId: next.id });
     } else {
       activeTabId = null;
-      navigateApp({ name: "library", section });
+      navigateApp(libraryRoute());
     }
   };
 
@@ -262,6 +300,9 @@
     LocalStoragePersistence.saveWorkspaceSession({
       view,
       section,
+      folderId,
+      driveId,
+      formId,
       tabs,
       activeTabId,
     });
@@ -297,6 +338,9 @@
     LocalStoragePersistence.saveWorkspaceSession({
       view,
       section,
+      folderId,
+      driveId,
+      formId,
       tabs,
       activeTabId,
     });
@@ -325,19 +369,30 @@
       applyRoute(boot);
     } else if (!isShareHash()) {
       navigateApp(
-        view === "editor" ? { name: "editor", tabId: activeTabId ?? undefined } : { name: "library", section },
+        view === "form" && formId
+          ? { name: "form", formId }
+          : view === "editor"
+            ? { name: "editor", tabId: activeTabId ?? undefined }
+            : libraryRoute(),
         "replace",
       );
     }
     const onLeave = () => persistSession();
+    const onLibraryChanged = () => {
+      libraryRevision += 1;
+    };
     window.addEventListener("pagehide", onLeave);
     window.addEventListener("beforeunload", onLeave);
+    window.addEventListener(LIBRARY_CHANGED_EVENT, onLibraryChanged);
     const stopRoute = subscribeAppRoute(applyRoute);
+    const stopShare = startLibraryShareRuntime();
     return () => {
       persistSession();
       stopRoute();
+      stopShare();
       window.removeEventListener("pagehide", onLeave);
       window.removeEventListener("beforeunload", onLeave);
+      window.removeEventListener(LIBRARY_CHANGED_EVENT, onLibraryChanged);
     };
   });
 
@@ -355,6 +410,8 @@
     tabs={tabs.map((tab) => ({ id: tab.id, title: tab.title }))}
     {activeTabId}
     librarySection={section}
+    libraryFolderId={folderId}
+    libraryDriveId={driveId}
     showHome={view === "library"}
     onClose={closeTab}
     onCreate={() => (createOpen = true)}>
@@ -377,12 +434,18 @@
   <div class="workspace-body">
     <div class="workspace-panel" class:is-hidden={view !== "library"}>
       <TemplateLibrary
-        {section}
+        location={{ section, folderId, driveId }}
         revision={libraryRevision}
-        onSectionChange={(next) => navigateApp({ name: "library", section: next })}
+        onNavigate={(next) => navigateApp({ name: "library", ...next })}
         onCreate={() => (createOpen = true)}
         openTemplate={openLabel}
+        {openForm}
         {onLabelRenamed} />
+    </div>
+    <div class="workspace-panel" class:is-hidden={view !== "form"}>
+      {#if formId}
+        <FormFill sourceId={formId} revision={libraryRevision} onEditSource={(label) => void openLabel(label)} />
+      {/if}
     </div>
     <div class="workspace-panel" class:is-hidden={view !== "editor"}>
       <LabelDesigner
@@ -391,6 +454,12 @@
         onSaved={onSaved}
         fileRenamed={renameActiveTab}
         onUrlLoaded={openLabel}
+        onOpenForm={(id) => {
+          const label = LocalStoragePersistence.loadLabels().find((item) => item.id === id);
+          if (label) {
+            openForm(label);
+          }
+        }}
         onBeforeUnmount={snapshotDesigner}
         onDeleted={() => {
           if (activeTabId) {
