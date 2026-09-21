@@ -39,6 +39,8 @@
     type RemoteDrive,
   } from "$/utils/library_tree";
   import { onMount, untrack } from "svelte";
+  import { extractFormFields } from "$/utils/form_fields";
+  import { listFormSourceIds, pruneMissingForms, publishForm, unpublishForm } from "$/utils/form_store";
 
   interface Props {
     location: LibraryLocation;
@@ -46,10 +48,11 @@
     onNavigate: (location: LibraryLocation) => void;
     onCreate: () => void;
     openTemplate: (label: ExportedLabelTemplate, options?: { print?: boolean }) => void;
+    openForm: (label: ExportedLabelTemplate) => void;
     onLabelRenamed?: (id: string, title: string) => void;
   }
 
-  let { location, revision, onNavigate, onCreate, openTemplate, onLabelRenamed }: Props = $props();
+  let { location, revision, onNavigate, onCreate, openTemplate, openForm, onLabelRenamed }: Props = $props();
 
   let savedLabels = $state.raw<ExportedLabelTemplate[]>([]);
   let history = $state.raw<PrintHistoryEntry[]>([]);
@@ -65,6 +68,7 @@
   let folderPromptOpen = $state(false);
   let folderTarget = $state<{ driveId: string; folder?: LibraryFolder; parentId: string | null } | null>(null);
   let driveDialog = $state(false);
+  let formSourceIds = $state<string[]>(listFormSourceIds());
 
   const section = $derived(location.section);
 
@@ -73,7 +77,9 @@
     savedLabels = labels;
     history = LocalStoragePersistence.loadPrintHistory();
     printCounts = LocalStoragePersistence.loadPrintCounts();
-    index = syncLibraryPlacements(labels.map((label) => label.id).filter((id): id is string => !!id));
+    const labelIds = labels.map((label) => label.id).filter((id): id is string => !!id);
+    index = syncLibraryPlacements(labelIds);
+    formSourceIds = pruneMissingForms(labelIds);
     drives = loadRemoteDrives();
   };
 
@@ -140,12 +146,20 @@
     return [...savedLabels].sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
   });
 
+  const formLabels = $derived.by(() => {
+    const ids = new Set(formSourceIds);
+    return savedLabels.filter((label) => !!label.id && ids.has(label.id));
+  });
+
   const visibleLabels = $derived.by(() => {
     if (section === "catalog") {
       return starters;
     }
     if (section === "recent") {
       return recentLabels;
+    }
+    if (section === "forms") {
+      return formLabels;
     }
     return labelsInFolder(currentLabels, currentIndex, currentFolderId);
   });
@@ -155,7 +169,9 @@
       ? $tr("library.print_history")
       : section === "catalog"
         ? $tr("library.catalog")
-        : section === "recent"
+        : section === "forms"
+          ? $tr("forms.title")
+          : section === "recent"
           ? $tr("library.recent")
           : currentFolder?.name ??
             (section === "drive"
@@ -168,7 +184,9 @@
       ? $tr("library.empty.history")
       : section === "catalog"
         ? $tr("library.empty.catalog")
-        : section === "recent"
+        : section === "forms"
+          ? $tr("forms.empty")
+          : section === "recent"
           ? $tr("library.empty.recent")
           : $tr("library.empty.folder"),
   );
@@ -185,6 +203,37 @@
       cloned.id = undefined;
     }
     openTemplate(cloned, options);
+  };
+
+  const isForm = (label: ExportedLabelTemplate) => !!label.id && formSourceIds.includes(label.id);
+
+  const canBeForm = (label: ExportedLabelTemplate) =>
+    !!label.id && !isStarterTemplate(label.id) && currentDriveId === LOCAL_DRIVE_ID && extractFormFields(label).length > 0;
+
+  const addToForms = (label: ExportedLabelTemplate) => {
+    if (!label.id || !canBeForm(label)) {
+      return;
+    }
+    publishForm(label.id);
+    refreshLocal();
+  };
+
+  const removeFromForms = (label: ExportedLabelTemplate) => {
+    if (!label.id) {
+      return;
+    }
+    unpublishForm(label.id);
+    refreshLocal();
+  };
+
+  const fillForm = (label: ExportedLabelTemplate) => {
+    if (!label.id) {
+      return;
+    }
+    if (!isForm(label) && canBeForm(label)) {
+      publishForm(label.id);
+    }
+    openForm(cloneLabelTemplate(label));
   };
 
   const exportLabel = (label: ExportedLabelTemplate) => {
@@ -388,6 +437,10 @@
       <MdIcon icon="schedule" />
       {$tr("library.recent")}
     </a>
+    <a class="library-nav__item" class:is-active={section === "forms"} href={libraryHref("forms")}>
+      <MdIcon icon="assignment" />
+      {$tr("forms.title")}
+    </a>
     <a class="library-nav__item" class:is-active={section === "history"} href={libraryHref("history")}>
       <MdIcon icon="history" />
       {$tr("library.print_history")}
@@ -535,11 +588,14 @@
               printCount={label.id ? printCounts[label.id] ?? 0 : 0}
               draggable={!!label.id && !isStarterTemplate(label.id) && (section === "mine" || section === "drive")}
               onDragStart={(event) => onCardDragStart(event, label)}
-              onSelect={() => selectLabel(label)}
+              onSelect={() => (section === "forms" ? fillForm(label) : selectLabel(label))}
               onRename={canRenameLabel(label) ? () => openRename(label) : undefined}
               onDuplicate={() => duplicateLabel(label)}
               onDelete={canDeleteLabel(label) ? () => deleteLabel(label) : undefined}
               onExport={() => exportLabel(label)}
+              onFillForm={canBeForm(label) || isForm(label) ? () => fillForm(label) : undefined}
+              onAddToForms={canBeForm(label) && !isForm(label) ? () => addToForms(label) : undefined}
+              onRemoveFromForms={isForm(label) ? () => removeFromForms(label) : undefined}
               onPrint={() => selectLabel(label, { print: true })} />
           {/each}
         {/if}

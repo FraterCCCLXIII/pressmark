@@ -5,6 +5,32 @@ import dayjs from "dayjs";
 import { TextboxExt } from "$/fabric-object/textbox-ext";
 
 const VARIABLE_TEMPLATE_RX = /{\s*([^{}|]+?)\s*(?:\|\s*([^}]*?)\s*)?}/g;
+const AUTOMATIC_KEYS = new Set(["dt"]);
+
+type TemplatedObject = fabric.FabricObject & { csvSource?: string; text?: string };
+
+export const templateSourceText = (obj: fabric.FabricObject | { csvSource?: unknown; text?: unknown }): string => {
+  const bound = obj as { csvSource?: unknown; text?: unknown };
+  if (typeof bound.csvSource === "string" && bound.csvSource.length > 0) {
+    return bound.csvSource;
+  }
+  return typeof bound.text === "string" ? bound.text : "";
+};
+
+export const listTemplateKeys = (input: string): string[] => {
+  const keys: string[] = [];
+  const seen = new Set<string>();
+  const matches = String(input ?? "").matchAll(new RegExp(VARIABLE_TEMPLATE_RX.source, "g"));
+  for (const match of matches) {
+    const key = String(match[1] ?? "").trim();
+    if (!key || AUTOMATIC_KEYS.has(key) || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    keys.push(key);
+  }
+  return keys;
+};
 
 const preprocessDateTime = (format?: string) => {
   const dt = dayjs();
@@ -52,8 +78,9 @@ export const resolveTemplate = (input: string, variables?: { [v: string]: string
 /** Replace text templates in some canvas objects */
 export const canvasPreprocess = (canvas: fabric.Canvas, variables?: { [key: string]: string }) => {
   canvas.forEachObject((obj: fabric.FabricObject) => {
+    const source = templateSourceText(obj as TemplatedObject);
     if (obj instanceof fabric.IText) {
-      const text = resolveTemplate(obj.text ?? "", variables);
+      const text = resolveTemplate(source, variables);
 
       if (obj instanceof TextboxExt && obj.fontAutoSize) {
         obj.setAndShrinkText(text, obj.width);
@@ -61,7 +88,7 @@ export const canvasPreprocess = (canvas: fabric.Canvas, variables?: { [key: stri
         obj.set({ text });
       }
     } else if (obj instanceof QRCode || obj instanceof Barcode) {
-      obj.set({ text: resolveTemplate(obj.text ?? "", variables) });
+      obj.set({ text: resolveTemplate(source, variables) });
     }
   });
 };

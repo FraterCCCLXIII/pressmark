@@ -18,6 +18,9 @@
     onDelete?: () => void;
     onExport?: () => void;
     onPrint?: () => void;
+    onFillForm?: () => void;
+    onAddToForms?: () => void;
+    onRemoveFromForms?: () => void;
   }
 
   let {
@@ -32,6 +35,9 @@
     onDelete,
     onExport,
     onPrint,
+    onFillForm,
+    onAddToForms,
+    onRemoveFromForms,
   }: Props = $props();
 
   let menu: { show: () => void } | undefined = $state();
@@ -95,6 +101,15 @@
         {/if}
         {#if onExport}
           <MenuItem onclick={() => onExport()}>{$tr("editor.export")}</MenuItem>
+        {/if}
+        {#if onFillForm}
+          <MenuItem onclick={() => onFillForm()}>{$tr("forms.fill")}</MenuItem>
+        {/if}
+        {#if onAddToForms}
+          <MenuItem onclick={() => onAddToForms()}>{$tr("forms.add")}</MenuItem>
+        {/if}
+        {#if onRemoveFromForms}
+          <MenuItem onclick={() => onRemoveFromForms()}>{$tr("forms.remove")}</MenuItem>
         {/if}
         {#if onPrint}
           <MenuItem onclick={() => onPrint()}>{$tr("editor.print")}</MenuItem>

@@ -2,6 +2,7 @@
   import { onMount, tick } from "svelte";
   import LabelDesigner from "$/components/LabelDesigner.svelte";
   import TemplateLibrary from "$/components/workspace/TemplateLibrary.svelte";
+  import FormFill from "$/components/workspace/FormFill.svelte";
   import {
     type AppRoute,
     type LibraryLocation,
@@ -41,8 +42,8 @@
   const restoredSession = LocalStoragePersistence.loadWorkspaceSession();
   const bootRoute = parseAppRoute();
 
-  let view = $state<"library" | "editor">(
-    bootRoute?.name === "editor" ? "editor" : bootRoute?.name === "library" ? "library" : (restoredSession?.view ?? "library"),
+  let view = $state<"library" | "editor" | "form">(
+    bootRoute?.name === "form" ? "form" : bootRoute?.name === "editor" ? "editor" : bootRoute?.name === "library" ? "library" : (restoredSession?.view ?? "library"),
   );
   let section = $state<LibraryLocation["section"]>(bootRoute?.name === "library" ? bootRoute.section : (restoredSession?.section ?? "recent"));
   let folderId = $state<string | undefined>(bootRoute?.name === "library" ? bootRoute.folderId : restoredSession?.folderId);
@@ -59,8 +60,13 @@
   let settingsOpen = $state(bootRoute?.name === "settings");
   let savedLabelsOpen = $state(false);
   let designer = $state<LabelDesigner | undefined>();
+  let formId = $state<string | undefined>(bootRoute?.name === "form" ? bootRoute.formId : restoredSession?.formId);
   let lastContentRoute = $state<AppRoute>(
-    view === "editor" ? { name: "editor", tabId: activeTabId ?? undefined } : { name: "library", section, folderId, driveId },
+    view === "form" && formId
+      ? { name: "form", formId }
+      : view === "editor"
+        ? { name: "editor", tabId: activeTabId ?? undefined }
+        : { name: "library", section, folderId, driveId },
   );
 
   const libraryRoute = (): AppRoute => ({ name: "library", section, folderId, driveId });
@@ -135,6 +141,14 @@
       libraryRevision += 1;
       return;
     }
+    if (route.name === "form") {
+      snapshotDesigner();
+      formId = route.formId;
+      section = "forms";
+      view = "form";
+      libraryRevision += 1;
+      return;
+    }
     const tabId =
       (route.tabId && tabs.some((tab) => tab.id === route.tabId) ? route.tabId : undefined) ??
       (activeTabId && tabs.some((tab) => tab.id === activeTabId) ? activeTabId : undefined) ??
@@ -195,6 +209,22 @@
     } catch (error) {
       Toasts.error(error);
     }
+  };
+
+  const openForm = (label: ExportedLabelTemplate) => {
+    if (!label.id) {
+      return;
+    }
+    try {
+      snapshotDesigner();
+    } catch (error) {
+      console.error(error);
+    }
+    formId = label.id;
+    section = "forms";
+    view = "form";
+    navigateApp({ name: "form", formId: label.id });
+    persistSession();
   };
 
   const createLabel = async (label: LabelProps, title: string) => {
@@ -272,6 +302,7 @@
       section,
       folderId,
       driveId,
+      formId,
       tabs,
       activeTabId,
     });
@@ -309,6 +340,7 @@
       section,
       folderId,
       driveId,
+      formId,
       tabs,
       activeTabId,
     });
@@ -337,7 +369,11 @@
       applyRoute(boot);
     } else if (!isShareHash()) {
       navigateApp(
-        view === "editor" ? { name: "editor", tabId: activeTabId ?? undefined } : libraryRoute(),
+        view === "form" && formId
+          ? { name: "form", formId }
+          : view === "editor"
+            ? { name: "editor", tabId: activeTabId ?? undefined }
+            : libraryRoute(),
         "replace",
       );
     }
@@ -403,7 +439,13 @@
         onNavigate={(next) => navigateApp({ name: "library", ...next })}
         onCreate={() => (createOpen = true)}
         openTemplate={openLabel}
+        {openForm}
         {onLabelRenamed} />
+    </div>
+    <div class="workspace-panel" class:is-hidden={view !== "form"}>
+      {#if formId}
+        <FormFill sourceId={formId} revision={libraryRevision} onEditSource={(label) => void openLabel(label)} />
+      {/if}
     </div>
     <div class="workspace-panel" class:is-hidden={view !== "editor"}>
       <LabelDesigner
@@ -412,6 +454,12 @@
         onSaved={onSaved}
         fileRenamed={renameActiveTab}
         onUrlLoaded={openLabel}
+        onOpenForm={(id) => {
+          const label = LocalStoragePersistence.loadLabels().find((item) => item.id === id);
+          if (label) {
+            openForm(label);
+          }
+        }}
         onBeforeUnmount={snapshotDesigner}
         onDeleted={() => {
           if (activeTabId) {

@@ -1,4 +1,4 @@
-export const LIBRARY_SECTIONS = ["recent", "mine", "history", "catalog", "drive"] as const;
+export const LIBRARY_SECTIONS = ["recent", "mine", "history", "catalog", "drive", "forms"] as const;
 
 export type LibrarySection = (typeof LIBRARY_SECTIONS)[number];
 
@@ -11,6 +11,7 @@ export type LibraryLocation = {
 export type AppRoute =
   | ({ name: "library" } & LibraryLocation)
   | { name: "editor"; tabId?: string }
+  | { name: "form"; formId: string }
   | { name: "settings" }
   | { name: "debug" };
 
@@ -54,6 +55,9 @@ export const parseAppRoute = (hash = globalThis.location?.hash ?? ""): AppRoute 
   if (page === "editor") {
     return { name: "editor", tabId: param };
   }
+  if (page === "form") {
+    return param ? { name: "form", formId: param } : { name: "library", section: "forms" };
+  }
   if (page === "settings") {
     return { name: "settings" };
   }
@@ -76,6 +80,9 @@ export const appRouteHash = (route: AppRoute): string => {
   if (route.name === "editor") {
     return route.tabId ? `#/editor/${encodeURIComponent(route.tabId)}` : "#/editor";
   }
+  if (route.name === "form") {
+    return `#/form/${encodeURIComponent(route.formId)}`;
+  }
   return route.name === "settings" ? "#/settings" : "#/debug";
 };
 
@@ -87,6 +94,10 @@ export const libraryHref = (section: LibrarySection | LibraryLocation = "recent"
 };
 
 export const editorHref = (tabId?: string): string => appRouteHash({ name: "editor", tabId });
+
+export const formHref = (formId: string): string => appRouteHash({ name: "form", formId });
+
+export const formsHref = (): string => libraryHref("forms");
 
 export const settingsHref = (): string => appRouteHash({ name: "settings" });
 
@@ -106,6 +117,9 @@ export const sameAppRoute = (left: AppRoute, right: AppRoute): boolean => {
   }
   if (left.name === "editor" && right.name === "editor") {
     return (left.tabId ?? "") === (right.tabId ?? "");
+  }
+  if (left.name === "form" && right.name === "form") {
+    return left.formId === right.formId;
   }
   return true;
 };

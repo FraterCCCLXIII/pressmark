@@ -97,10 +97,11 @@ export const WorkspaceTabStateSchema = z.object({
 });
 
 export const WorkspaceSessionSchema = z.object({
-  view: z.enum(["library", "editor"]),
-  section: z.enum(["recent", "mine", "history", "catalog", "drive"]),
+  view: z.enum(["library", "editor", "form"]),
+  section: z.enum(["recent", "mine", "history", "catalog", "drive", "forms"]),
   folderId: z.string().optional(),
   driveId: z.string().optional(),
+  formId: z.string().optional(),
   tabs: z.array(WorkspaceTabStateSchema),
   activeTabId: z.string().nullable(),
 });

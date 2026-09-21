@@ -47,6 +47,8 @@
     show: boolean;
     labelTitle?: string;
     sourceId?: string;
+    variables?: { [key: string]: string };
+    initialQuantity?: number;
   }
 
   let {
@@ -58,6 +60,8 @@
     show = $bindable(),
     labelTitle = "",
     sourceId,
+    variables: formVariables = {},
+    initialQuantity,
   }: Props = $props();
 
   let previewCanvas: HTMLCanvasElement;
@@ -452,11 +456,11 @@
         height: labelProps.size.height,
       });
 
-      let variables = {};
+      let variables = { ...formVariables };
 
       if (csvEnabled) {
         if (page >= 0 && page < csvParsed.length) {
-          variables = csvParsed[page];
+          variables = { ...formVariables, ...csvParsed[page] };
         } else {
           console.warn(`Page ${page} is out of csv bounds (csv length is ${csvParsed.length})`);
         }
@@ -556,6 +560,9 @@
     }
 
     loadProps();
+    if (initialQuantity != null) {
+      quantity = Math.max(1, parseCopyCount(initialQuantity, 1));
+    }
 
     await generatePreviewData(page);
 
