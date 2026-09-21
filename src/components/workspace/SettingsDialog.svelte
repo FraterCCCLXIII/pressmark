@@ -1,7 +1,10 @@
 <script lang="ts">
   import AppModal from "$/components/basic/AppModal.svelte";
   import MdIcon from "$/components/basic/MdIcon.svelte";
+  import { Button, TextField } from "$/components/ui";
   import { locale, locales, tr } from "$/utils/i18n";
+  import { generateAccessCode, loadLibraryShare, saveLibraryShare } from "$/utils/library_store";
+  import { setLibrarySharing } from "$/utils/library_share";
 
   interface Props {
     show: boolean;
@@ -11,6 +14,42 @@
   }
 
   let { show = $bindable(), commit, buildDate, onDebug }: Props = $props();
+
+  let share = $state(loadLibraryShare());
+  let copied = $state<"address" | "code" | null>(null);
+
+  $effect(() => {
+    if (show) {
+      share = loadLibraryShare();
+      copied = null;
+    }
+  });
+
+  const address = $derived(typeof window === "undefined" ? "" : window.location.origin);
+
+  const persistShare = () => {
+    saveLibraryShare(share);
+  };
+
+  const toggleShare = async (enabled: boolean) => {
+    share = { ...share, enabled };
+    persistShare();
+    await setLibrarySharing(enabled);
+    share = loadLibraryShare();
+  };
+
+  const copy = async (kind: "address" | "code", value: string) => {
+    await navigator.clipboard.writeText(value);
+    copied = kind;
+  };
+
+  const rotateCode = async () => {
+    share = { ...share, token: generateAccessCode() };
+    persistShare();
+    if (share.enabled) {
+      await setLibrarySharing(true);
+    }
+  };
 </script>
 
 {#if show}
@@ -22,6 +61,48 @@
           <option value={key}>{name}</option>
         {/each}
       </select>
+    </section>
+
+    <section class="settings-block">
+      <h3>{$tr("library.share.title")}</h3>
+      <p class="settings-help">{$tr("library.share.help")}</p>
+      <label class="settings-toggle">
+        <input
+          type="checkbox"
+          checked={share.enabled}
+          onchange={(event) => void toggleShare(event.currentTarget.checked)} />
+        {$tr("library.share.enable")}
+      </label>
+      <label class="settings-field">
+        <span>{$tr("library.share.name")}</span>
+        <TextField
+          value={share.name}
+          oninput={(event) => {
+            share = { ...share, name: event.currentTarget.value };
+            persistShare();
+          }} />
+      </label>
+      <div class="settings-copy-row">
+        <div>
+          <span>{$tr("library.drive.address")}</span>
+          <code>{address}</code>
+        </div>
+        <Button size="sm" onclick={() => void copy("address", address)}>
+          {copied === "address" ? $tr("library.share.copied") : $tr("library.share.copy")}
+        </Button>
+      </div>
+      <div class="settings-copy-row">
+        <div>
+          <span>{$tr("library.drive.code")}</span>
+          <code>{share.token}</code>
+        </div>
+        <div class="settings-copy-actions">
+          <Button size="sm" onclick={() => void copy("code", share.token)}>
+            {copied === "code" ? $tr("library.share.copied") : $tr("library.share.copy")}
+          </Button>
+          <Button size="sm" onclick={() => void rotateCode()}>{$tr("library.share.new_code")}</Button>
+        </div>
+      </div>
     </section>
 
     <section class="settings-block">
@@ -79,6 +160,54 @@
     color: var(--ws-text);
     font-size: 14px;
     font-weight: 600;
+  }
+
+  .settings-help {
+    margin: 0 0 12px;
+    color: var(--ws-muted);
+    font-size: 13px;
+  }
+
+  .settings-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: var(--ws-text);
+    font-size: 14px;
+  }
+
+  .settings-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .settings-field span,
+  .settings-copy-row span {
+    color: var(--ws-muted);
+    font-size: 12px;
+  }
+
+  .settings-copy-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .settings-copy-row code {
+    display: block;
+    margin-top: 4px;
+    color: var(--ws-text);
+    font-size: 13px;
+  }
+
+  .settings-copy-actions {
+    display: flex;
+    gap: 6px;
   }
 
   .settings-block :global(.insp-field) {

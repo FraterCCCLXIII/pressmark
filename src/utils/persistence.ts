@@ -146,12 +146,7 @@ export class LocalStoragePersistence {
   } {
     const zodErrors: z.ZodError[] = [];
     const otherErrors: Error[] = [];
-
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith("saved_label")) {
-        localStorage.removeItem(key);
-      }
-    });
+    const keep = new Set<string>();
 
     labels.forEach((label) => {
       try {
@@ -159,18 +154,11 @@ export class LocalStoragePersistence {
           label.timestamp = FileUtils.timestamp();
         }
 
-        const basename = `saved_label_${label.timestamp}`;
-        let counter = 0;
-
-        while (`${basename}_${counter}` in localStorage) {
-          counter++;
-        }
-
-        this.validateAndSaveObject(
-          this.createUidForLabel(label),
-          label,
-          ExportedLabelTemplateSchema.omit({ id: true }),
-        );
+        const id =
+          label.id && label.id.startsWith("saved_label") ? label.id : this.createUidForLabel(label);
+        keep.add(id);
+        label.id = id;
+        this.validateAndSaveObject(id, label, ExportedLabelTemplateSchema.omit({ id: true }));
       } catch (e) {
         if (e instanceof z.ZodError) {
           zodErrors.push(e);
@@ -178,6 +166,12 @@ export class LocalStoragePersistence {
         if (e instanceof Error) {
           otherErrors.push(e);
         }
+      }
+    });
+
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith("saved_label") && !keep.has(key)) {
+        localStorage.removeItem(key);
       }
     });
     return { zodErrors, otherErrors };

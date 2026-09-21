@@ -4,7 +4,7 @@
   import TemplateLibrary from "$/components/workspace/TemplateLibrary.svelte";
   import {
     type AppRoute,
-    type LibrarySection,
+    type LibraryLocation,
     isShareHash,
     navigateApp,
     parseAppRoute,
@@ -30,6 +30,8 @@
   import { tr } from "$/utils/i18n";
   import { getDesktop } from "$/utils/desktop";
   import { Toasts } from "$/utils/toasts";
+  import { LIBRARY_CHANGED_EVENT } from "$/utils/library_host";
+  import { startLibraryShareRuntime } from "$/utils/library_share";
 
   // eslint-disable-next-line no-undef
   const appCommit = __APP_COMMIT__;
@@ -42,7 +44,9 @@
   let view = $state<"library" | "editor">(
     bootRoute?.name === "editor" ? "editor" : bootRoute?.name === "library" ? "library" : (restoredSession?.view ?? "library"),
   );
-  let section = $state<LibrarySection>(bootRoute?.name === "library" ? bootRoute.section : (restoredSession?.section ?? "recent"));
+  let section = $state<LibraryLocation["section"]>(bootRoute?.name === "library" ? bootRoute.section : (restoredSession?.section ?? "recent"));
+  let folderId = $state<string | undefined>(bootRoute?.name === "library" ? bootRoute.folderId : restoredSession?.folderId);
+  let driveId = $state<string | undefined>(bootRoute?.name === "library" ? bootRoute.driveId : restoredSession?.driveId);
   let tabs = $state<WorkspaceTabState[]>(restoredSession?.tabs ?? []);
   let activeTabId = $state<string | null>(
     bootRoute?.name === "editor" && bootRoute.tabId && tabs.some((tab) => tab.id === bootRoute.tabId)
@@ -56,8 +60,10 @@
   let savedLabelsOpen = $state(false);
   let designer = $state<LabelDesigner | undefined>();
   let lastContentRoute = $state<AppRoute>(
-    view === "editor" ? { name: "editor", tabId: activeTabId ?? undefined } : { name: "library", section },
+    view === "editor" ? { name: "editor", tabId: activeTabId ?? undefined } : { name: "library", section, folderId, driveId },
   );
+
+  const libraryRoute = (): AppRoute => ({ name: "library", section, folderId, driveId });
 
   const activeTab = $derived(tabs.find((tab) => tab.id === activeTabId));
 
@@ -123,6 +129,8 @@
     if (route.name === "library") {
       snapshotDesigner();
       section = route.section;
+      folderId = route.folderId;
+      driveId = route.driveId;
       view = "library";
       libraryRevision += 1;
       return;
@@ -132,7 +140,7 @@
       (activeTabId && tabs.some((tab) => tab.id === activeTabId) ? activeTabId : undefined) ??
       tabs[0]?.id;
     if (!tabId) {
-      navigateApp({ name: "library", section }, "replace");
+      navigateApp(libraryRoute(), "replace");
       return;
     }
     if (route.tabId !== tabId) {
@@ -209,7 +217,7 @@
       navigateApp({ name: "editor", tabId: next.id });
     } else {
       activeTabId = null;
-      navigateApp({ name: "library", section });
+      navigateApp(libraryRoute());
     }
   };
 
@@ -262,6 +270,8 @@
     LocalStoragePersistence.saveWorkspaceSession({
       view,
       section,
+      folderId,
+      driveId,
       tabs,
       activeTabId,
     });
@@ -297,6 +307,8 @@
     LocalStoragePersistence.saveWorkspaceSession({
       view,
       section,
+      folderId,
+      driveId,
       tabs,
       activeTabId,
     });
@@ -325,19 +337,26 @@
       applyRoute(boot);
     } else if (!isShareHash()) {
       navigateApp(
-        view === "editor" ? { name: "editor", tabId: activeTabId ?? undefined } : { name: "library", section },
+        view === "editor" ? { name: "editor", tabId: activeTabId ?? undefined } : libraryRoute(),
         "replace",
       );
     }
     const onLeave = () => persistSession();
+    const onLibraryChanged = () => {
+      libraryRevision += 1;
+    };
     window.addEventListener("pagehide", onLeave);
     window.addEventListener("beforeunload", onLeave);
+    window.addEventListener(LIBRARY_CHANGED_EVENT, onLibraryChanged);
     const stopRoute = subscribeAppRoute(applyRoute);
+    const stopShare = startLibraryShareRuntime();
     return () => {
       persistSession();
       stopRoute();
+      stopShare();
       window.removeEventListener("pagehide", onLeave);
       window.removeEventListener("beforeunload", onLeave);
+      window.removeEventListener(LIBRARY_CHANGED_EVENT, onLibraryChanged);
     };
   });
 
@@ -355,6 +374,8 @@
     tabs={tabs.map((tab) => ({ id: tab.id, title: tab.title }))}
     {activeTabId}
     librarySection={section}
+    libraryFolderId={folderId}
+    libraryDriveId={driveId}
     showHome={view === "library"}
     onClose={closeTab}
     onCreate={() => (createOpen = true)}>
@@ -377,9 +398,9 @@
   <div class="workspace-body">
     <div class="workspace-panel" class:is-hidden={view !== "library"}>
       <TemplateLibrary
-        {section}
+        location={{ section, folderId, driveId }}
         revision={libraryRevision}
-        onSectionChange={(next) => navigateApp({ name: "library", section: next })}
+        onNavigate={(next) => navigateApp({ name: "library", ...next })}
         onCreate={() => (createOpen = true)}
         openTemplate={openLabel}
         {onLabelRenamed} />

@@ -10,6 +10,8 @@
     label: ExportedLabelTemplate;
     printCount?: number;
     lastQuantity?: number;
+    draggable?: boolean;
+    onDragStart?: (event: DragEvent) => void;
     onSelect?: () => void;
     onRename?: () => void;
     onDuplicate?: () => void;
@@ -18,7 +20,19 @@
     onPrint?: () => void;
   }
 
-  let { label, printCount = 0, lastQuantity = 0, onSelect, onRename, onDuplicate, onDelete, onExport, onPrint }: Props = $props();
+  let {
+    label,
+    printCount = 0,
+    lastQuantity = 0,
+    draggable = false,
+    onDragStart,
+    onSelect,
+    onRename,
+    onDuplicate,
+    onDelete,
+    onExport,
+    onPrint,
+  }: Props = $props();
 
   let menu: { show: () => void } | undefined = $state();
 
@@ -37,7 +51,7 @@
   };
 </script>
 
-<div class="template-card-wrap">
+<div class="template-card-wrap" {draggable} role={draggable ? "listitem" : undefined} ondragstart={onDragStart}>
   <div class="template-card">
     <button type="button" class="template-card__hit" onclick={onCardClick} oncontextmenu={showCardMenu}>
       <div class="template-card__preview">

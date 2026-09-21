@@ -7,10 +7,13 @@
   interface Props {
     show: boolean;
     value: string;
+    title?: string;
+    fieldLabel?: string;
+    actionLabel?: string;
     onRename: (name: string) => void;
   }
 
-  let { show = $bindable(), value, onRename }: Props = $props();
+  let { show = $bindable(), value, title, fieldLabel, actionLabel, onRename }: Props = $props();
 
   let draft = $state("");
   let nameInput: HTMLInputElement | undefined = $state();
@@ -45,9 +48,9 @@
 </script>
 
 {#if show}
-  <AppModal bind:show title={$tr("editor.rename.title")}>
+  <AppModal bind:show title={title ?? $tr("editor.rename.title")}>
     <label class="rename-field">
-      <span>{$tr("editor.label_settings.title")}</span>
+      <span>{fieldLabel ?? $tr("editor.label_settings.title")}</span>
       <input
         bind:this={nameInput}
         class="insp-field"
@@ -65,7 +68,7 @@
 
     {#snippet footer()}
       <Button variant="primary" onclick={confirm} disabled={!draft.trim()}>
-        {$tr("editor.rename.action")}
+        {actionLabel ?? $tr("editor.rename.action")}
       </Button>
     {/snippet}
   </AppModal>
