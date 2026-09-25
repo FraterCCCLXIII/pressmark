@@ -164,9 +164,6 @@
             onpointerdown={(event) => onRowPointerDown(event, index)}
             oncontextmenu={(event) => showLayerMenu(event, index)}
             onkeydown={(event) => onRowKeyDown(event, index)}>
-            <span class="layer-row__grip" aria-hidden="true">
-              <MdIcon icon="drag_indicator" />
-            </span>
             <span class="layer-row__icon" aria-hidden="true">
               <MdIcon icon={getLayerIcon(layer.kind)} />
             </span>
@@ -296,12 +293,6 @@
 
   .layer-row.is-drop-after::after {
     bottom: -1px;
-  }
-
-  .layer-row__grip {
-    display: inline-flex;
-    color: var(--ws-muted);
-    flex-shrink: 0;
   }
 
   .layer-row__icon {
