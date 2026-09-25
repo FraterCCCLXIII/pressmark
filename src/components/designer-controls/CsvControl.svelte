@@ -102,6 +102,13 @@
 
   const clearSource = () => {
     enabled = false;
+    $csvData = { data: "" };
+    pendingTable = { columns: [], rows: [] };
+    pendingName = "";
+    pendingSource = "";
+    pendingSelected = [];
+    pendingPrintNames = false;
+    showTable = false;
     onCleared?.();
   };
 </script>
@@ -129,7 +136,8 @@
   selected={pendingSelected}
   printColumnNames={pendingPrintNames}
   onCancel={closeTable}
-  onConfirm={confirmTable} />
+  onConfirm={confirmTable}
+  onRemove={clearSource} />
 
 <style>
   .csv-file-input {

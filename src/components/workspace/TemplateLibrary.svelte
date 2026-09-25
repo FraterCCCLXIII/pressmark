@@ -13,7 +13,9 @@
   import RenameLabelDialog from "$/components/workspace/RenameLabelDialog.svelte";
   import AddRemoteDriveDialog from "$/components/workspace/AddRemoteDriveDialog.svelte";
   import FolderNav from "$/components/workspace/FolderNav.svelte";
+  import UserMenu from "$/components/auth/UserMenu.svelte";
   import CustomScroll from "$/components/basic/CustomScroll.svelte";
+  import { auth } from "$/utils/auth_session";
   import { libraryHref, type LibraryLocation } from "$/utils/app_router";
   import { LIBRARY_CHANGED_EVENT, indexFromSnapshot, type LibrarySnapshot } from "$/utils/library_host";
   import { fetchRemoteLibrary, mutateRemoteLibrary } from "$/utils/library_remote";
@@ -380,44 +382,51 @@
 
 <div class="library">
   <aside class="library-nav">
-    <Button variant="primary" class="mb-3" onclick={onCreate}>
-      <MdIcon icon="add" />
-      {$tr("library.create")}
-    </Button>
-    <a class="library-nav__item" class:is-active={section === "recent"} href={libraryHref("recent")}>
-      <MdIcon icon="schedule" />
-      {$tr("library.recent")}
-    </a>
-    <a class="library-nav__item" class:is-active={section === "history"} href={libraryHref("history")}>
-      <MdIcon icon="history" />
-      {$tr("library.print_history")}
-    </a>
-    <a class="library-nav__item" class:is-active={section === "catalog"} href={libraryHref("catalog")}>
-      <MdIcon icon="widgets" />
-      {$tr("library.catalog")}
-    </a>
+    <div class="library-nav__scroll">
+      <Button variant="primary" class="mb-3" onclick={onCreate}>
+        <MdIcon icon="add" />
+        {$tr("library.create")}
+      </Button>
+      <a class="library-nav__item" class:is-active={section === "recent"} href={libraryHref("recent")}>
+        <MdIcon icon="schedule" />
+        {$tr("library.recent")}
+      </a>
+      <a class="library-nav__item" class:is-active={section === "history"} href={libraryHref("history")}>
+        <MdIcon icon="history" />
+        {$tr("library.print_history")}
+      </a>
+      <a class="library-nav__item" class:is-active={section === "catalog"} href={libraryHref("catalog")}>
+        <MdIcon icon="widgets" />
+        {$tr("library.catalog")}
+      </a>
 
-    <FolderNav
-      {location}
-      folders={index.folders}
-      {drives}
-      {remoteFolders}
-      {driveStatus}
-      onNewFolder={(parentId, driveId) => openFolderPrompt("create", driveId, parentId)}
-      onRenameFolder={(folder, driveId) => openFolderPrompt("rename", driveId, folder.parentId, folder)}
-      onDeleteFolder={deleteFolder}
-      {onDropItem}
-      onAddDrive={() => (driveDialog = true)}
-      onRefreshDrive={(driveId) => void refreshDrive(driveId)}
-      onRemoveDrive={(driveId) => {
-        drives = removeRemoteDrive(driveId);
-        const next = { ...remoteSnapshots };
-        delete next[driveId];
-        remoteSnapshots = next;
-        if (location.driveId === driveId) {
-          onNavigate({ section: "mine" });
-        }
-      }} />
+      <FolderNav
+        {location}
+        folders={index.folders}
+        {drives}
+        {remoteFolders}
+        {driveStatus}
+        onNewFolder={(parentId, driveId) => openFolderPrompt("create", driveId, parentId)}
+        onRenameFolder={(folder, driveId) => openFolderPrompt("rename", driveId, folder.parentId, folder)}
+        onDeleteFolder={deleteFolder}
+        {onDropItem}
+        onAddDrive={() => (driveDialog = true)}
+        onRefreshDrive={(driveId) => void refreshDrive(driveId)}
+        onRemoveDrive={(driveId) => {
+          drives = removeRemoteDrive(driveId);
+          const next = { ...remoteSnapshots };
+          delete next[driveId];
+          remoteSnapshots = next;
+          if (location.driveId === driveId) {
+            onNavigate({ section: "mine" });
+          }
+        }} />
+    </div>
+    {#if $auth.authEnabled && $auth.user}
+      <div class="library-nav__account">
+        <UserMenu user={$auth.user} />
+      </div>
+    {/if}
   </aside>
 
   <CustomScroll class="library-main">

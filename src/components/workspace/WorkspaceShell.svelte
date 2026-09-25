@@ -114,6 +114,15 @@
   };
 
   const applyRoute = (route: AppRoute) => {
+    if (
+      route.name === "setup" ||
+      route.name === "login" ||
+      route.name === "forgot" ||
+      route.name === "reset" ||
+      route.name === "admin"
+    ) {
+      return;
+    }
     if (route.name === "settings") {
       settingsOpen = true;
       return;

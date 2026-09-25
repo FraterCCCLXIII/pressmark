@@ -12,7 +12,15 @@ export type AppRoute =
   | ({ name: "library" } & LibraryLocation)
   | { name: "editor"; tabId?: string }
   | { name: "settings" }
-  | { name: "debug" };
+  | { name: "debug" }
+  | { name: "setup" }
+  | { name: "login" }
+  | { name: "forgot" }
+  | { name: "reset"; token: string }
+  | { name: "admin" };
+
+export const isAuthRoute = (route: AppRoute | null): route is Extract<AppRoute, { name: "setup" | "login" | "forgot" | "reset" | "admin" }> =>
+  !!route && (route.name === "setup" || route.name === "login" || route.name === "forgot" || route.name === "reset" || route.name === "admin");
 
 const ROUTE_EVENT = "nb:route";
 
@@ -60,6 +68,21 @@ export const parseAppRoute = (hash = globalThis.location?.hash ?? ""): AppRoute 
   if (page === "debug") {
     return { name: "debug" };
   }
+  if (page === "setup") {
+    return { name: "setup" };
+  }
+  if (page === "login") {
+    return { name: "login" };
+  }
+  if (page === "forgot") {
+    return { name: "forgot" };
+  }
+  if (page === "reset") {
+    return { name: "reset", token: param ?? "" };
+  }
+  if (page === "admin") {
+    return { name: "admin" };
+  }
   return { name: "library", section: "recent" };
 };
 
@@ -76,7 +99,16 @@ export const appRouteHash = (route: AppRoute): string => {
   if (route.name === "editor") {
     return route.tabId ? `#/editor/${encodeURIComponent(route.tabId)}` : "#/editor";
   }
-  return route.name === "settings" ? "#/settings" : "#/debug";
+  if (route.name === "reset") {
+    return route.token ? `#/reset/${encodeURIComponent(route.token)}` : "#/reset";
+  }
+  if (route.name === "settings") {
+    return "#/settings";
+  }
+  if (route.name === "debug") {
+    return "#/debug";
+  }
+  return `#/${route.name}`;
 };
 
 export const libraryHref = (section: LibrarySection | LibraryLocation = "recent", extras?: Omit<LibraryLocation, "section">): string => {
@@ -92,6 +124,16 @@ export const settingsHref = (): string => appRouteHash({ name: "settings" });
 
 export const debugHref = (): string => appRouteHash({ name: "debug" });
 
+export const setupHref = (): string => appRouteHash({ name: "setup" });
+
+export const loginHref = (): string => appRouteHash({ name: "login" });
+
+export const forgotHref = (): string => appRouteHash({ name: "forgot" });
+
+export const resetHref = (token: string): string => appRouteHash({ name: "reset", token });
+
+export const adminHref = (): string => appRouteHash({ name: "admin" });
+
 export const currentAppRoute = (): AppRoute | null => parseAppRoute();
 
 export const sameLibraryLocation = (left: LibraryLocation, right: LibraryLocation): boolean =>
@@ -106,6 +148,9 @@ export const sameAppRoute = (left: AppRoute, right: AppRoute): boolean => {
   }
   if (left.name === "editor" && right.name === "editor") {
     return (left.tabId ?? "") === (right.tabId ?? "");
+  }
+  if (left.name === "reset" && right.name === "reset") {
+    return left.token === right.token;
   }
   return true;
 };

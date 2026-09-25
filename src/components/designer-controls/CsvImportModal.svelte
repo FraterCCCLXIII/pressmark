@@ -20,14 +20,16 @@
     printColumnNames: boolean;
     onCancel: () => void;
     onConfirm: (result: CsvImportResult) => void;
+    onRemove?: () => void;
   }
 
-  let { show = $bindable(), table, selected, printColumnNames, onCancel, onConfirm }: Props = $props();
+  let { show = $bindable(), table, selected, printColumnNames, onCancel, onConfirm, onRemove }: Props = $props();
 
   let query = $state("");
   let selectedIds = $state<Set<number>>(new Set());
   let printNames = $state(false);
   let draft = $state<CsvTable>({ columns: [], rows: [] });
+  let confirmRemove = $state(false);
 
   $effect(() => {
     if (show) {
@@ -35,6 +37,7 @@
       selectedIds = new Set(selected.filter((index) => index >= 0 && index < table.rows.length));
       printNames = printColumnNames;
       query = "";
+      confirmRemove = false;
     }
   });
 
@@ -135,10 +138,34 @@
       table: cloneCsvTable(draft),
     });
   };
+
+  const requestRemove = () => {
+    confirmRemove = true;
+  };
+
+  const cancelRemove = () => {
+    confirmRemove = false;
+  };
+
+  const removeSource = () => {
+    confirmRemove = false;
+    onRemove?.();
+  };
 </script>
 
 {#if show}
-  <AppModal bind:show title={$translate("params.csv.select_title")} size="xl" scroll={false} onClose={onCancel}>
+  <AppModal
+    bind:show
+    title={$translate("params.csv.select_title")}
+    size="xl"
+    scroll={false}
+    onClose={() => {
+      if (confirmRemove) {
+        confirmRemove = false;
+        return false;
+      }
+      onCancel();
+    }}>
     <div class="csv-import">
       <div class="csv-import__toolbar">
         <p>
@@ -224,10 +251,36 @@
 
     {#snippet footer()}
       <div class="csv-import__footer">
-        <Button onclick={onCancel}>{$translate("params.csv.cancel")}</Button>
-        <Button variant="primary" disabled={selectedCount === 0} onclick={confirm}>
-          {$translate("params.csv.confirm")}
-        </Button>
+        {#if onRemove}
+          <Button variant="danger" onclick={requestRemove} aria-label={$translate("params.csv.remove")}>
+            <MdIcon icon="delete" />
+            {$translate("params.csv.remove")}
+          </Button>
+        {/if}
+        <div class="csv-import__footer-end">
+          <Button onclick={onCancel}>{$translate("params.csv.cancel")}</Button>
+          <Button variant="primary" disabled={selectedCount === 0} onclick={confirm}>
+            {$translate("params.csv.confirm")}
+          </Button>
+        </div>
+      </div>
+    {/snippet}
+  </AppModal>
+{/if}
+
+{#if confirmRemove}
+  <AppModal
+    bind:show={confirmRemove}
+    title={$translate("params.csv.remove.title")}
+    stack
+    onClose={cancelRemove}>
+    <p class="csv-import__confirm">{$translate("params.csv.remove.help")}</p>
+    {#snippet footer()}
+      <div class="csv-import__footer">
+        <div class="csv-import__footer-end">
+          <Button onclick={cancelRemove}>{$translate("params.csv.cancel")}</Button>
+          <Button variant="danger" onclick={removeSource}>{$translate("params.csv.remove.confirm")}</Button>
+        </div>
       </div>
     {/snippet}
   </AppModal>
@@ -368,8 +421,23 @@
 
   .csv-import__footer {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     gap: 8px;
     width: 100%;
+  }
+
+  .csv-import__footer-end {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .csv-import__confirm {
+    margin: 0;
+    color: var(--ws-text);
+    font-size: 14px;
+    line-height: 1.45;
   }
 </style>

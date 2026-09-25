@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { Plugin } from "vite";
+import { loadEnv, type Plugin } from "vite";
+import { handlePressmarkAuth, loadAuthStore } from "./pressmark-auth";
 
 const PREFIX = "/__pressmark/host";
 
@@ -121,6 +122,9 @@ const applyMutation = (snapshot: Snapshot, mutation: Mutation): Snapshot => {
 
 const handle = (state: HostState) => async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
   const raw = req.url ?? "";
+  if (await handlePressmarkAuth(req, res)) {
+    return;
+  }
   if (!raw.startsWith(PREFIX) && !raw.split("?")[0]?.startsWith(PREFIX)) {
     next();
     return;
@@ -206,14 +210,26 @@ const handle = (state: HostState) => async (req: IncomingMessage, res: ServerRes
   json(res, 404, { error: "not_found" });
 };
 
+const bootEnv = (mode: string) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  for (const [key, value] of Object.entries(env)) {
+    if (key.startsWith("PRESSMARK_") && !process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+  loadAuthStore();
+};
+
 export const pressmarkLibraryHost = (): Plugin => {
   const state: HostState = { token: null, snapshot: null, inbox: [] };
   return {
     name: "pressmark-library-host",
     configureServer(server) {
+      bootEnv(server.config.mode);
       server.middlewares.use(handle(state));
     },
     configurePreviewServer(server) {
+      bootEnv(server.config.mode);
       server.middlewares.use(handle(state));
     },
   };

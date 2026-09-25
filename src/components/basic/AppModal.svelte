@@ -9,7 +9,7 @@
     size?: "md" | "lg" | "xl";
     scroll?: boolean;
     stack?: boolean;
-    onClose?: () => void;
+    onClose?: () => boolean | void;
     children: Snippet;
     footer?: Snippet;
   }
@@ -23,8 +23,8 @@
     if (!dismissReady) {
       return;
     }
-    if (onClose) {
-      onClose();
+    if (onClose?.() === false) {
+      return;
     }
     show = false;
   };

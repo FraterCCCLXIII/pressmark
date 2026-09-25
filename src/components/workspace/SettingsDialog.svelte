@@ -5,6 +5,8 @@
   import { locale, locales, tr } from "$/utils/i18n";
   import { generateAccessCode, loadLibraryShare, saveLibraryShare } from "$/utils/library_store";
   import { setLibrarySharing } from "$/utils/library_share";
+  import { auth } from "$/utils/auth_session";
+  import { adminHref, setupHref } from "$/utils/app_router";
 
   interface Props {
     show: boolean;
@@ -104,6 +106,20 @@
         </div>
       </div>
     </section>
+
+    {#if $auth.canSetup || $auth.authEnabled}
+      <section class="settings-block">
+        <h3>{$tr("auth.settings.title")}</h3>
+        <p class="settings-help">
+          {$auth.authEnabled ? $tr("auth.settings.enabled") : $tr("auth.settings.help")}
+        </p>
+        {#if $auth.canSetup}
+          <a class="settings-debug" href={setupHref()}>{$tr("auth.setup.action")}</a>
+        {:else if $auth.user?.role === "admin"}
+          <a class="settings-debug" href={adminHref()}>{$tr("auth.admin.title")}</a>
+        {/if}
+      </section>
+    {/if}
 
     <section class="settings-block">
       <h3>{$tr("settings.about")}</h3>
@@ -254,6 +270,7 @@
     background: var(--ws-surface);
     color: var(--ws-text);
     font-size: 14px;
+    text-decoration: none;
   }
 
   .settings-debug:hover {

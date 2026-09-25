@@ -6,6 +6,7 @@
   interface Props {
     open?: boolean;
     align?: "start" | "end";
+    side?: "top" | "bottom";
     closeOnSelect?: boolean;
     class?: string;
     triggerClass?: string;
@@ -17,6 +18,7 @@
   let {
     open = $bindable(false),
     align = "end",
+    side = "bottom",
     closeOnSelect = true,
     class: className,
     triggerClass,
@@ -67,7 +69,7 @@
     onOpen?.();
 
     popper = createPopper(triggerEl, menuEl, {
-      placement: align === "end" ? "bottom-end" : "bottom-start",
+      placement: `${side}-${align === "end" ? "end" : "start"}`,
       strategy: "fixed",
       modifiers: [
         { name: "offset", options: { offset: [0, 4] } },

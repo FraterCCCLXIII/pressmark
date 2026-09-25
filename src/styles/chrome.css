@@ -249,7 +249,67 @@
   flex-direction: column;
   gap: 6px;
   min-height: 0;
+  overflow: hidden;
+}
+
+.library-nav__scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
   overflow: auto;
+  flex: 1;
+}
+
+.library-nav__account {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--ws-line);
+  position: sticky;
+  bottom: 0;
+  background: var(--ws-bg);
+}
+
+.library-nav__account-btn {
+  width: 100%;
+}
+
+.library-nav__account-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form label,
+.auth-form .auth-check {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.auth-form .auth-check {
+  flex-direction: row;
+  align-items: center;
+}
+
+.auth-error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 13px;
+}
+
+.auth-note {
+  margin: 0;
+  color: var(--ws-muted);
+  font-size: 14px;
 }
 
 .library-nav__item {
